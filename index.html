@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スピーチ練習＆評価アプリ</title>
+    <!-- Tailwind CSSを読み込み -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Interフォントの読み込み（Tailwindのデフォルト） */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* 評価結果用のスタイル */
+        .evaluation-grid {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 0.5rem 1rem;
+        }
+        /* アクティブなタブのスタイル（JSで制御するクラス） */
+        .tab-button.active {
+            color: #2563EB; /* text-blue-600 */
+            border-color: #2563EB; /* border-blue-600 */
+        }
+        /* 非アクティブなタブのスタイル */
+        .tab-button.inactive {
+            color: #6B7280; /* text-gray-500 */
+            border-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4 md:p-8">
+    <div class="w-full max-w-4xl bg-white rounded-2xl shadow-xl p-6 md:p-10 space-y-6">
+        <h1 class="text-2xl md:text-3xl font-bold text-center text-gray-800">
+            スピーチ練習 & 評価アプリ
+        </h1>
+
+        <!-- 練習モード選択タブ -->
+        <div class="mb-4 border-b border-gray-200">
+            <nav class="flex -mb-px space-x-6" aria-label="Tabs">
+                <button id="tabSampleScript" class="tab-button whitespace-nowrap py-3 px-1 border-b-2 font-medium text-lg text-blue-600 border-blue-600" aria-current="page">
+                    原稿例あり
+                </button>
+                <button id="tabMyScript" class="tab-button whitespace-nowrap py-3 px-1 border-b-2 font-medium text-lg text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300">
+                    自分の原稿で
+                </button>
+            </nav>
+        </div>
+
+        <!-- 1. スピーチ内容エリア -->
+        <div class="space-y-3">
+            <h2 class="text-xl font-semibold text-gray-700">1. スピーチ内容</h2>
+            <!-- 原稿例ありエリア -->
+            <div id="sample-script-area">
+                <div id="speech-script" class="w-full h-64 p-4 bg-gray-50 border border-gray-300 rounded-lg overflow-y-auto text-gray-800 leading-relaxed">
+                    <p class="font-bold text-lg mb-2">What would you do if you won the lottery?</p>
+                    <p class="mb-3">It is not too much to say everyone wants to be rich. If you won the lottery and became super rich, what would you do? If I won the lottery and became a billionaire, I would use my money to spend a lot of time seeing the world.</p>
+                    <p class="mb-3">First, I would buy a house in Hollywood. Living in Hollywood is one of my dreams. When I was a kid, I watched movies set in Hollywood. I was so impressed with the exciting Hollywood life in these movies. This made me want to live there as if I were one of the movie characters.</p>
+                    <p class="mb-3">Second, I would watch soccer matches live throughout Europe. I’ve wanted to watch matches in different leagues every weekend since I started playing soccer.</p>
+                    <p>Overall, I would use the lottery money to spend a lot of time in foreign countries. I want to be more than a tourist and experience everyday life in other cultures. Thank you for listening.</p>
+                </div>
+            </div>
+            <!-- 自分の原稿でエリア (デフォルトは非表示) -->
+            <div id="my-script-area" class="hidden space-y-4">
+                <!-- テキスト入力 -->
+                <textarea id="my-script-textarea" class="w-full h-48 p-4 bg-gray-50 border border-gray-300 rounded-lg text-gray-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ここに自分の原稿を入力または貼り付けるか、下のボタンから画像をアップロードしてください..."></textarea>
+                
+                <!-- 画像アップロードセクション -->
+                <div class="space-y-2">
+                    <label for="imageUpload" class="text-sm font-medium text-gray-700">または、原稿の画像をアップロード:</label>
+                    <input type="file" id="imageUpload" accept="image/*" class="block w-full text-sm text-gray-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-lg file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-blue-50 file:text-blue-700
+                        hover:file:bg-blue-100 cursor-pointer"/>
+                </div>
+
+                <!-- 画像プレビュー＆抽出ボタン -->
+                <div id="imagePreviewContainer" class="hidden space-y-3">
+                    <p class="text-sm font-medium text-gray-700">画像プレビュー:</p>
+                    <img id="imagePreview" src="#" alt="原稿プレビュー" class="max-h-60 w-auto border border-gray-300 rounded-lg object-contain"/>
+                    <button id="extractTextButton" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-5 rounded-lg shadow-md transition-all duration-300 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                        画像からテキストを抽出
+                    </button>
+                    <div id="loadingIndicator" class="hidden flex items-center space-x-2 text-gray-600">
+                        <svg class="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>テキストを抽出中... (最大30秒程度)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- 2. 録音・再生エリア -->
+        <div class="space-y-4">
+            <h2 class="text-xl font-semibold text-gray-700">2. 録音と再生</h2>
+            <div class="flex flex-col sm:flex-row items-center gap-4">
+                <button id="recordButton" class="w-full sm:w-auto flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-300 ease-in-out">
+                    録音開始
+                </button>
+                <div id="statusMessage" class="text-gray-600 text-center sm:text-left">
+                    ボタンを押して録音を開始してください。
+                </div>
+            </div>
+            <audio id="audioPlayer" controls class="w-full hidden mt-4"></audio>
+        </div>
+
+        <!-- 3. 評価エリア -->
+        <div class="space-y-4">
+            <h2 class="text-xl font-semibold text-gray-700">3. スピーチ評価</h2>
+            <button id="evaluateButton" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-300 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                評価する
+            </button>
+            <div id="evaluationResult" class="hidden w-full p-5 bg-blue-50 border border-blue-200 rounded-lg space-y-6 mt-4">
+                <!-- 評価結果がここに挿入されます -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM要素の取得
+        const recordButton = document.getElementById('recordButton');
+        const evaluateButton = document.getElementById('evaluateButton');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const statusMessage = document.getElementById('statusMessage');
+        const evaluationResult = document.getElementById('evaluationResult');
+        
+        const tabSampleScript = document.getElementById('tabSampleScript');
+        const tabMyScript = document.getElementById('tabMyScript');
+        const sampleScriptArea = document.getElementById('sample-script-area');
+        const myScriptArea = document.getElementById('my-script-area');
+        
+        // 「自分の原稿で」エリアの要素
+        const myScriptTextarea = document.getElementById('my-script-textarea');
+        const imageUpload = document.getElementById('imageUpload');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const imagePreview = document.getElementById('imagePreview');
+        const extractTextButton = document.getElementById('extractTextButton');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let audioBlob = null;
+        let practiceMode = 'sampleScript'; // 'sampleScript' or 'myScript'
+        let imageBase64Data = null; // 画像のBase64データを保持
+
+        // タブ切り替え時に録音状態をリセットする関数
+        const resetPracticeArea = () => {
+            // 録音状態をリセット
+            if (isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                recordButton.textContent = '録音開始';
+                recordButton.classList.remove('bg-red-600', 'hover:bg-red-700');
+                recordButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            }
+            statusMessage.textContent = 'ボタンを押して録音を開始してください。';
+            audioPlayer.classList.add('hidden');
+            audioPlayer.src = '';
+            audioBlob = null;
+            evaluateButton.disabled = true;
+            evaluationResult.classList.add('hidden');
+
+// ... existing code ... -->
+        };
+        
+        // タブ切り替えロジック
+        const switchTab = (mode) => {
+            practiceMode = mode;
+            const isSampleScript = (mode === 'sampleScript');
+
+            // tabSampleScript のスタイル制御
+            tabSampleScript.classList.toggle('text-blue-600', isSampleScript);
+            tabSampleScript.classList.toggle('border-blue-600', isSampleScript);
+            tabSampleScript.classList.toggle('text-gray-500', !isSampleScript);
+            tabSampleScript.classList.toggle('border-transparent', !isSampleScript);
+            tabSampleScript.classList.toggle('hover:text-gray-700', !isSampleScript);
+            tabSampleScript.classList.toggle('hover:border-gray-300', !isSampleScript);
+            isSampleScript ? tabSampleScript.setAttribute('aria-current', 'page') : tabSampleScript.removeAttribute('aria-current');
+
+            // tabMyScript のスタイル制御
+            tabMyScript.classList.toggle('text-blue-600', !isSampleScript);
+            tabMyScript.classList.toggle('border-blue-600', !isSampleScript);
+            tabMyScript.classList.toggle('text-gray-500', isSampleScript);
+            tabMyScript.classList.toggle('border-transparent', isSampleScript);
+            tabMyScript.classList.toggle('hover:text-gray-700', isSampleScript);
+            tabMyScript.classList.toggle('hover:border-gray-300', isSampleScript);
+            !isSampleScript ? tabMyScript.setAttribute('aria-current', 'page') : tabMyScript.removeAttribute('aria-current');
+
+            // エリアの表示切り替え
+            sampleScriptArea.classList.toggle('hidden', !isSampleScript);
+            myScriptArea.classList.toggle('hidden', isSampleScript);
+        };
+
+        tabSampleScript.addEventListener('click', () => {
+            switchTab('sampleScript');
+            resetPracticeArea();
+        });
+        tabMyScript.addEventListener('click', () => {
+            switchTab('myScript');
+            resetPracticeArea();
+        });
+
+// ... existing code ... -->
+
